@@ -31,7 +31,7 @@ AfterLife ensures your digital XLM assets are distributed to your chosen benefic
 
 | Network | Contract Address | Explorer |
 |---------|-----------------|----------|
-| **Stellar Testnet** | `TBD — deploy with Stellar CLI` | [Stellarchain.io](https://stellarchain.io) |
+| **Stellar Testnet** | `CBTAWNMZRYCAR4FFAANJ537CI2W4ZLKM4B4ETN3ZADBSBTTWBS7QW27T` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CBTAWNMZRYCAR4FFAANJ537CI2W4ZLKM4B4ETN3ZADBSBTTWBS7QW27T) |
 
 > **Platform Fee:** 10% deducted on every beneficiary claim → platform treasury
 

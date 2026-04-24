@@ -152,11 +152,11 @@ impl AfterLifeContract {
             storage::set_beneficiaries(&env, &caller, &beneficiaries);
 
             env.events()
-                .publish((symbol_short!("revived"), caller), current_ledger);
+                .publish((symbol_short!("revived"), caller.clone()), current_ledger);
         } else {
             protocol.last_heartbeat_ledger = current_ledger;
             env.events()
-                .publish((symbol_short!("pulse"), caller), current_ledger);
+                .publish((symbol_short!("pulse"), caller.clone()), current_ledger);
         }
 
         storage::set_protocol(&env, &caller, &protocol);
@@ -478,7 +478,7 @@ impl AfterLifeContract {
     pub fn claim(env: Env, caller: Address, owner: Address) {
         caller.require_auth();
 
-        let mut protocol = storage::get_protocol(&env, &owner)
+        let protocol = storage::get_protocol(&env, &owner)
             .unwrap_or_else(|| panic_with_error!(&env, Error::NotRegistered));
 
         if !protocol.is_dead {
