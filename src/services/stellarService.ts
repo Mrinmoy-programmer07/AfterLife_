@@ -22,11 +22,32 @@ export const PLATFORM_WALLET = (import.meta as any).env?.VITE_PLATFORM_WALLET ??
 
 let initialized = false;
 
+const afterlifeTheme = {
+  "background": "#050508",
+  "background-secondary": "#0c0c18",
+  "foreground-strong": "#f0c040",
+  "foreground": "#f0ece0",
+  "foreground-secondary": "#8b8fa8",
+  "primary": "#f0c040",
+  "primary-foreground": "#0a0808",
+  "transparent": "rgba(0,0,0,0)",
+  "lighter": "#1e1e2d",
+  "light": "#141420",
+  "light-gray": "#2a2a3e",
+  "gray": "#4a4d60",
+  "danger": "#c9484c",
+  "border": "rgba(240,192,64,0.15)",
+  "shadow": "0 8px 32px rgba(240,192,64,0.15)",
+  "border-radius": "16px",
+  "font-family": "'DM Sans', sans-serif",
+};
+
 export function initWalletsKit(): void {
   if (initialized) return;
   StellarWalletsKit.init({
     modules: defaultModules(),
     network: STELLAR_NETWORK_PASSPHRASE,
+    theme: afterlifeTheme as any,
   });
   initialized = true;
 }
