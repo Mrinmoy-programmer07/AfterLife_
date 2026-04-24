@@ -75,26 +75,15 @@ export default function BeneficiaryView() {
 
   return (
     <div className="full-page ui-layer" style={{ minHeight: '100vh' }}>
-      {/* Nav */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(5,5,8,0.85)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--border-default)',
-        padding: '12px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setRole(UserRole.NONE)}>
-          <AnimatedLogo size={32} />
-          <span style={{ fontFamily: 'Cinzel, serif', color: 'var(--gold-bright)', letterSpacing: '0.2em', fontSize: '0.8rem' }}>AFTERLIFE</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {isSyncing && <RefreshCw size={13} color="var(--text-muted)" style={{ animation: 'spin-slow 1s linear infinite' }} />}
-          <StateBadge state={protocolState} />
-          <span style={{ background: 'var(--crimson-dim)', border: '1px solid rgba(201,72,76,0.3)', color: 'var(--crimson)', fontSize: '0.65rem', padding: '3px 10px', borderRadius: 999, fontFamily: 'var(--font-display)', letterSpacing: '0.1em' }}>
-            BENEFICIARY
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={disconnect}><LogOut size={12} /></button>
-        </div>
+      {/* ---- Top Actions ---- */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 24px 0', maxWidth: 700, margin: '0 auto' }}>
+        <button 
+          className="btn btn-ghost btn-sm" 
+          onClick={() => setRole(UserRole.NONE)}
+          style={{ fontFamily: 'Cinzel, serif', fontSize: '0.75rem', letterSpacing: '0.1em' }}
+        >
+          &larr; Switch Role
+        </button>
       </div>
 
       <div className="container" style={{ padding: '40px 24px', maxWidth: 700 }}>
