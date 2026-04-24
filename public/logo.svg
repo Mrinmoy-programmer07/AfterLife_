@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <!-- Gold gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0c040"/>
+      <stop offset="100%" stop-color="#d4a520"/>
+    </linearGradient>
+    <!-- Teal accent -->
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <!-- Glow filters -->
+    <filter id="glowGold" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowSoft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Radial glow for orbit -->
+    <radialGradient id="orbitGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f0c040" stop-opacity="0.0"/>
+      <stop offset="90%" stop-color="#f0c040" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#f0c040" stop-opacity="0.0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Outer cosmic ring / orbit -->
+  <circle cx="100" cy="100" r="90" stroke="url(#goldGrad)" stroke-width="0.8" stroke-dasharray="4 8" opacity="0.5" filter="url(#glowGold)"/>
+  <circle cx="100" cy="100" r="90" fill="url(#orbitGlow)" opacity="0.6"/>
+
+  <!-- Orbit particles -->
+  <circle cx="100" cy="10"  r="2.5" fill="#f0c040" filter="url(#glowGold)"/>
+  <circle cx="164" cy="32"  r="1.8" fill="#d4a520" opacity="0.7"/>
+  <circle cx="190" cy="100" r="2.5" fill="#f0c040" filter="url(#glowGold)"/>
+  <circle cx="164" cy="168" r="1.8" fill="#d4a520" opacity="0.7"/>
+  <circle cx="100" cy="190" r="2.5" fill="#f0c040" filter="url(#glowGold)"/>
+  <circle cx="36"  cy="168" r="1.8" fill="#d4a520" opacity="0.7"/>
+  <circle cx="10"  cy="100" r="2.5" fill="#f0c040" filter="url(#glowGold)"/>
+  <circle cx="36"  cy="32"  r="1.8" fill="#d4a520" opacity="0.7"/>
+
+  <!-- Secondary orbit (inner, teal) -->
+  <circle cx="100" cy="100" r="68" stroke="url(#tealGrad)" stroke-width="0.5" stroke-dasharray="2 12" opacity="0.3"/>
+
+  <!-- Hourglass body -->
+  <!-- Top trapezoid -->
+  <path d="M68 45 L132 45 L108 100 L92 100 Z"
+        fill="url(#goldGrad)" opacity="0.12" filter="url(#glowSoft)"/>
+  <path d="M68 45 L132 45 L108 100 L92 100 Z"
+        stroke="url(#goldGrad)" stroke-width="1.5" filter="url(#glowGold)"/>
+
+  <!-- Bottom trapezoid -->
+  <path d="M92 100 L108 100 L132 155 L68 155 Z"
+        fill="url(#goldGrad)" opacity="0.12" filter="url(#glowSoft)"/>
+  <path d="M92 100 L108 100 L132 155 L68 155 Z"
+        stroke="url(#goldGrad)" stroke-width="1.5" filter="url(#glowGold)"/>
+
+  <!-- Top cap line -->
+  <line x1="62" y1="43" x2="138" y2="43" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round" filter="url(#glowGold)"/>
+  <!-- Bottom cap line -->
+  <line x1="62" y1="157" x2="138" y2="157" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round" filter="url(#glowGold)"/>
+
+  <!-- Sand flowing (upper) -->
+  <path d="M82 60 Q100 78 118 60" stroke="#f0c040" stroke-width="0.8" opacity="0.4" fill="none"/>
+  <path d="M86 68 Q100 82 114 68" stroke="#f0c040" stroke-width="0.6" opacity="0.3" fill="none"/>
+  <path d="M90 76 Q100 86 110 76" stroke="#f0c040" stroke-width="0.5" opacity="0.2" fill="none"/>
+
+  <!-- Sand dot at pinch -->
+  <circle cx="100" cy="100" r="3" fill="#f0c040" filter="url(#glowGold)" opacity="0.9"/>
+  <circle cx="100" cy="100" r="6" fill="#f0c040" opacity="0.12"/>
+
+  <!-- Keyhole inside bottom half -->
+  <!-- Circle -->
+  <circle cx="100" cy="122" r="10"
+          stroke="rgba(240,192,64,0.5)" stroke-width="1.2" fill="rgba(240,192,64,0.05)"/>
+  <!-- Key slot -->
+  <path d="M96 122 L96 142 L104 142 L104 122"
+        stroke="rgba(240,192,64,0.5)" stroke-width="1.2" fill="rgba(240,192,64,0.05)"/>
+
+  <!-- Accumulated sand (bottom) -->
+  <path d="M74 150 Q100 138 126 150 L132 155 L68 155 Z"
+        fill="url(#goldGrad)" opacity="0.25"/>
+
+  <!-- Corner accent sparks -->
+  <line x1="56" y1="38" x2="48" y2="30" stroke="#f0c040" stroke-width="0.8" opacity="0.5"/>
+  <line x1="144" y1="38" x2="152" y2="30" stroke="#f0c040" stroke-width="0.8" opacity="0.5"/>
+  <line x1="56" y1="162" x2="48" y2="170" stroke="#f0c040" stroke-width="0.8" opacity="0.5"/>
+  <line x1="144" y1="162" x2="152" y2="170" stroke="#f0c040" stroke-width="0.8" opacity="0.5"/>
+</svg>

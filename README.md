@@ -1,14 +1,15 @@
-# AfterLife | Temporal Asset Protocol ⏳⚖️
+# AfterLife V2 ⏳ — Temporal Asset Protocol on Stellar
 
 <div align="center">
 
-**A decentralized "dead man's switch" protocol for secure crypto inheritance**
+**A decentralized dead man's switch for secure crypto inheritance on the Stellar blockchain**
 
-[![Multi-Chain](https://img.shields.io/badge/Multi--Chain-Arbitrum%20%7C%20Mantle-blue)](https://github.com)
-[![Solidity](https://img.shields.io/badge/Solidity-0.8.20-363636)](https://soliditylang.org/)
+[![Stellar](https://img.shields.io/badge/Stellar-Soroban-blue?logo=stellar)](https://stellar.org)
+[![Rust](https://img.shields.io/badge/Contract-Rust%2FSoroban-orange?logo=rust)](https://soroban.stellar.org)
+[![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-61dafb?logo=react)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-[Live Demo](#) • [Documentation](#-architecture) • [Deploy](#-getting-started)
+*Your legacy, secured by code.*
 
 </div>
 
@@ -16,255 +17,196 @@
 
 ## 📖 Overview
 
-AfterLife ensures your digital assets are securely distributed to beneficiaries if you become inactive for a defined period. The protocol operates on a **"Dead Man's Switch"** principle — lack of activity triggers a state change that eventually unlocks assets for your chosen beneficiaries.
+AfterLife ensures your digital XLM assets are distributed to your chosen beneficiaries if you become inactive on the Stellar network. The protocol runs entirely on **Soroban** smart contracts — trustless, permissionless, and auditable.
 
-### Why AfterLife?
-- 🔐 **Trustless Execution** — No centralized authority controls your assets
-- ⏱️ **Time-Based Triggers** — Customizable inactivity thresholds
-- 🛡️ **Owner Override** — Cancel inheritance at any time with proof of life
-- 🔗 **Multi-Chain** — Deploy independently on Arbitrum and Mantle
+### How It Works
 
----
-
-## 🔗 Deployed Contracts
-
-### Mainnet (Coming Soon)
-
-### Testnets
-
-| Network | Chain ID | Contract Address | Explorer | Status |
-|---------|:--------:|------------------|----------|:------:|
-| **Arbitrum Sepolia** | 421614 | `0x6D2Bd7091CE36F15C944AB99c4cfc8833c2B8957` | [Arbiscan ↗](https://sepolia.arbiscan.io/address/0x6D2Bd7091CE36F15C944AB99c4cfc8833c2B8957) | ✅ Live |
-| **Mantle Sepolia** | 5003 | `0xe04250cE4a9A2362eaC92B2BaA3E16E3691EBcE9` | [Mantlescan ↗](https://explorer.sepolia.mantle.xyz/address/0xe04250cE4a9A2362eaC92B2BaA3E16E3691EBcE9) | ✅ Live |
-
-> 💡 **Platform Fee:** 10% on all beneficiary claims (sent to protocol treasury)
+1. **Owner** registers, deposits XLM, adds guardians & beneficiaries, and sends periodic heartbeats ("proof of life")
+2. **Guardian** monitors the owner. If the inactivity threshold passes, they confirm it on-chain
+3. **Beneficiary** claims their allocated XLM based on a customizable vesting schedule (linear or cliff)
 
 ---
 
-## 🏗️ Architecture
+## 🔗 Deployed Contract
 
-### System Components
+| Network | Contract Address | Explorer |
+|---------|-----------------|----------|
+| **Stellar Testnet** | `TBD — deploy with Stellar CLI` | [Stellarchain.io](https://stellarchain.io) |
+
+> **Platform Fee:** 10% deducted on every beneficiary claim → platform treasury
+
+---
+
+## 🏛️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           AFTERLIFE PROTOCOL                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐            │
-│   │    OWNER     │     │   GUARDIAN   │     │ BENEFICIARY  │            │
-│   │   Register   │     │   Confirm    │     │    Claim     │            │
-│   │   Deposit    │     │  Inactivity  │     │   Assets     │            │
-│   │  Prove Life  │     │              │     │              │            │
-│   └──────┬───────┘     └──────┬───────┘     └──────┬───────┘            │
-│          │                    │                    │                     │
-│          └────────────────────┼────────────────────┘                     │
-│                               │                                          │
-│                    ┌──────────▼──────────┐                              │
-│                    │   SMART CONTRACT    │                              │
-│                    │   (Multi-Tenant)    │                              │
-│                    │                     │                              │
-│                    │  • State Machine    │                              │
-│                    │  • Fund Storage     │                              │
-│                    │  • Vesting Logic    │                              │
-│                    └──────────┬──────────┘                              │
-│                               │                                          │
-│          ┌────────────────────┼────────────────────┐                     │
-│          │                    │                    │                     │
-│   ┌──────▼──────┐      ┌──────▼──────┐     ┌──────▼──────┐              │
-│   │  ARBITRUM   │      │   MANTLE    │     │   FUTURE    │              │
-│   │   SEPOLIA   │      │   SEPOLIA   │     │   CHAINS    │              │
-│   └─────────────┘      └─────────────┘     └─────────────┘              │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                  AFTERLIFE PROTOCOL                  │
+├───────────────┬──────────────────┬──────────────────┤
+│     OWNER     │    GUARDIAN      │   BENEFICIARY    │
+│  register()   │                  │                  │
+│  prove_life() │confirm_inactivity│    claim()       │
+│  deposit()    │     (owner)      │                  │
+│  withdraw()   │                  │                  │
+│  add_guardian │                  │                  │
+│  add_bene     │                  │                  │
+└───────┬───────┴──────────────────┴──────────────────┘
+        │
+        ▼
+┌───────────────────────────────┐
+│  SOROBAN SMART CONTRACT       │
+│  • Persistent storage per     │
+│    owner (Address key)        │
+│  • Ledger-based time model    │
+│  • Linear + Cliff vesting     │
+│  • 7-day revival grace period │
+│  • Pull-over-push transfers   │
+└───────────────────────────────┘
+        │
+        ▼
+  STELLAR TESTNET / MAINNET
 ```
 
-### Entity Roles
-
-| Entity | Role | Permissions |
-|--------|------|-------------|
-| **👤 Owner** | Asset Holder | Register, deposit/withdraw, add guardians/beneficiaries, prove life, revive |
-| **🛡️ Guardian** | Inactivity Oracle | Confirm owner inactivity (cannot touch funds) |
-| **💰 Beneficiary** | Asset Receiver | Claim allocated assets after vesting begins |
-
----
-
-## 🔄 Protocol Flow
-
-### Protocol States
+### Protocol State Machine
 
 ```
 ACTIVE → WARNING → PENDING → EXECUTING → COMPLETED
-   ↑__________|_________|_________|
-              (Owner can revive)
-```
-
-### State Transitions
-
-| From | To | Trigger |
-|------|-----|---------|
-| `ACTIVE` | `WARNING` | Inactivity reaches 70% of threshold |
-| `WARNING` | `PENDING` | Guardian confirms inactivity |
-| `PENDING` | `EXECUTING` | Vesting period begins |
-| `EXECUTING` | `COMPLETED` | All beneficiaries have claimed |
-| `ANY STATE` | `ACTIVE` | Owner proves life (7-day grace period) |
-
----
-
-### User Workflows
-
-**� Owner Flow**
-```
-Register → Add Guardians → Add Beneficiaries → Deposit Funds → Prove Life (Periodic)
-```
-
-**�️ Guardian Flow**
-```
-Monitor Owner → Detect Inactivity → Confirm Inactivity → Wait for Vesting
-```
-
-**� Beneficiary Flow**
-```
-Wait for Execution → Check Claimable Amount → Claim Assets → Receive Funds
+   ↑_____________________________________________|
+         (Owner proves life within 7-day grace period)
 ```
 
 ---
 
-## ⚙️ Technical Stack
+## ⚙️ Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| **Smart Contracts** | Solidity 0.8.20, Hardhat |
-| **Frontend** | React 18, Vite, TypeScript |
-| **Web3** | Wagmi v2, Viem, TanStack Query |
-| **Styling** | CSS3 (Glassmorphism), Framer Motion |
-| **3D Graphics** | Three.js, React Three Fiber |
-
----
-
-## 🛡️ Security Model
-
-### Safety Mechanisms
-
-| Mechanism | Description |
-|-----------|-------------|
-| **Owner Override** | `proveLife()` cancels inheritance at ANY time |
-| **7-Day Grace Period** | Owner can revive even after execution starts |
-| **Vesting Delay** | Funds unlock gradually, not instantly |
-| **Guardian Isolation** | Guardians have ZERO fund access |
-| **Reentrancy Guards** | All transfers protected |
-
-### Smart Contract Security
-- ✅ Custom errors (gas efficient)
-- ✅ Strict modifiers for access control
-- ✅ Bounded arrays (max 10 guardians, 20 beneficiaries)
-- ✅ Pull-over-push for fund transfers
+|-------|-----------|
+| **Smart Contract** | Rust + Soroban SDK 22 (compiled to WASM) |
+| **Frontend** | React 18 + TypeScript + Vite |
+| **Wallet** | @creit-tech/stellar-wallets-kit (Freighter, Lobstr, xBull, Albedo) |
+| **Blockchain** | @stellar/stellar-sdk v13 (Soroban RPC) |
+| **State** | Zustand + TanStack Query |
+| **3D / Animations** | Three.js + React Three Fiber + Framer Motion |
+| **Fonts** | Cinzel (headings) + DM Sans (body) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) v18+
-- [pnpm](https://pnpm.io/)
-- [MetaMask](https://metamask.io/) wallet
 
-### Quick Start
+- [Node.js](https://nodejs.org/) v20+
+- [pnpm](https://pnpm.io/)
+- [Rust](https://rustup.rs/) (for contract compilation)
+- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli) (for deployment)
+- [Freighter Wallet](https://freighter.app/) browser extension
+
+### Frontend Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/your-repo/afterlife.git
-cd afterlife
+# Clone repo
+git clone https://github.com/Mrinmoy-programmer07/AfterLife_.git
+cd AfterLife_
 
 # Install dependencies
 pnpm install
 
-# Run development server
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your deployed contract address
+
+# Start dev server
 pnpm dev
 ```
 
-### Deploy Contract (Optional)
+### Compile & Deploy Contract
 
 ```bash
-# Arbitrum Sepolia
-npx hardhat run scripts/deploy.js --network arbitrumSepolia
+cd contracts/afterlife
 
-# Mantle Sepolia
-npx hardhat run scripts/deploy.js --network mantleSepolia
+# Build WASM
+cargo build --target wasm32-unknown-unknown --release
+
+# Deploy to Stellar Testnet
+stellar contract deploy \
+  --wasm ../../target/wasm32-unknown-unknown/release/afterlife.wasm \
+  --source YOUR_SECRET_KEY \
+  --network testnet
+
+# Initialize (one-time)
+stellar contract invoke \
+  --id YOUR_CONTRACT_ID \
+  --source YOUR_SECRET_KEY \
+  --network testnet \
+  -- initialize \
+  --native_token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCN3 \
+  --platform_wallet YOUR_TREASURY_ADDRESS
+
+# Run contract tests
+cargo test
 ```
+
+---
+
+## 🔢 Ledger Time Reference
+
+Stellar produces ~1 ledger every 5 seconds:
+
+| Time | Ledgers |
+|------|---------|
+| 1 minute | 12 |
+| 1 hour | 720 |
+| 1 day | 17,280 |
+| 7 days (grace period) | 120,960 |
+| 30 days | 518,400 |
+
+---
+
+## 🛡️ Security Model
+
+| Mechanism | Description |
+|-----------|-------------|
+| **Owner Override** | `prove_life()` resets the timer at any time |
+| **7-Day Grace Period** | Owner can revive even after execution starts |
+| **Vesting Delay** | Funds unlock gradually, not instantly |
+| **Guardian Isolation** | Guardians have zero fund access |
+| **TTL Bumping** | Persistent storage entries extended on every access |
+| **Auth Required** | Every state mutation requires `require_auth()` |
 
 ---
 
 ## 📘 User Guide
 
-### For Owners
+### Owner
+1. Connect Freighter → Select **Owner** role
+2. **Register** with your chosen inactivity threshold (e.g., 30 days)
+3. **Deposit** XLM to your vault
+4. **Add Guardians** — trusted wallets to monitor you
+5. **Add Beneficiaries** — set allocations (must total ≤ 100%)
+6. Click **PROVE LIFE** periodically to reset your heartbeat
 
-1. **Connect Wallet** → Select network (Arbitrum or Mantle)
-2. **Register** → Set inactivity threshold (e.g., 30 days)
-3. **Add Guardians** → Trusted addresses to monitor you
-4. **Add Beneficiaries** → Set allocations (must total ≤100%)
-5. **Deposit Funds** → Transfer ETH/MNT to your vault
-6. **Prove Life** → Click periodically to stay active
+### Guardian
+1. Connect wallet → Select **Guardian** → Enter owner's address
+2. Monitor the inactivity gauge
+3. After the threshold passes, click **CONFIRM INACTIVITY**
 
-### For Guardians
-
-1. **Enter Owner Address** → Monitor their status
-2. **Wait for Threshold** → Inactivity timer must expire
-3. **Confirm Inactivity** → Triggers inheritance process
-
-### For Beneficiaries
-
-1. **Enter Owner Address** → Check your allocation
-2. **Wait for Execution** → Vesting must begin
-3. **Claim Assets** → Withdraw your share based on vesting schedule
-
----
-
-## 🌐 Network Configuration
-
-### Add to MetaMask
-
-<details>
-<summary><b>Arbitrum Sepolia</b></summary>
-
-| Setting | Value |
-|---------|-------|
-| Network Name | Arbitrum Sepolia |
-| RPC URL | `https://sepolia-rollup.arbitrum.io/rpc` |
-| Chain ID | `421614` |
-| Currency | ETH |
-| Explorer | `https://sepolia.arbiscan.io` |
-
-</details>
-
-<details>
-<summary><b>Mantle Sepolia</b></summary>
-
-| Setting | Value |
-|---------|-------|
-| Network Name | Mantle Sepolia Testnet |
-| RPC URL | `https://rpc.sepolia.mantle.xyz` |
-| Chain ID | `5003` |
-| Currency | MNT |
-| Explorer | `https://explorer.sepolia.mantle.xyz` |
-
-</details>
-
-### Faucets
-- **Arbitrum Sepolia**: [Alchemy Faucet](https://www.alchemy.com/faucets/arbitrum-sepolia)
-- **Mantle Sepolia**: [Mantle Faucet](https://faucet.sepolia.mantle.xyz)
+### Beneficiary
+1. Connect wallet → Select **Beneficiary** → Enter owner's address
+2. Wait for the protocol to enter **EXECUTING** state
+3. Click **CLAIM** to receive your XLM (10% platform fee applied)
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for the decentralized future**
+**Built with ❤️ for the Stellar ecosystem**
 
-[⬆ Back to Top](#afterlife--temporal-asset-protocol-️)
+[⬆ Back to Top](#afterlife-v2--temporal-asset-protocol-on-stellar)
 
 </div>
