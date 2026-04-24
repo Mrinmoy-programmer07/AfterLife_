@@ -146,24 +146,30 @@ MIN_THRESHOLD_LEDGERS = 17_280  // ~1 day
 
 | Concern | Solution |
 |---|---|
-| Stellar wallet connection | `@stellar/stellar-wallets-kit` |
-| Contract invocation | `@stellar/stellar-sdk` (soroban RPC) |
-| 3D background | `three.js` + `@react-three/fiber` + `@react-three/drei` |
+| Stellar wallet connection | `@creit-tech/stellar-wallets-kit` (Freighter primary; Albedo, xBull secondary) |
+| Contract invocation | `@stellar/stellar-sdk` v12 (Soroban RPC simulation + submission) |
+| State management | **Zustand** + **TanStack Query** |
+| 3D background | `three.js` + `@react-three/fiber` + `@react-three/drei` (10,000+ star particle system + rotating hourglass wireframe) |
 | Animations | `framer-motion` |
 | Toasts | `react-hot-toast` |
 | Icons | `lucide-react` |
-| Fonts | Google Fonts — `Space Grotesk` + `Inter` |
+| Fonts | Google Fonts — `Cinzel` (headings) + `DM Sans` (body) |
 
-### Design System — "Deep Space" Theme
+### Design System — "Cosmic Afterlife" Theme (from PRD)
 
 ```
-Primary:     Neon Gold    #F5C518
-Accent:      Cosmic Teal  #00CED1
-Background:  Void Black   #030712
-Surface:     Deep Navy    #0D1117
-Border:      Galactic     rgba(245, 197, 24, 0.2)
-Danger:      Nebula Red   #FF453A
-Success:     Aurora Green #30D158
+Primary:     Gold/Crimson  #C9484C  (PRD accent)
+Background:  Near Black    #050508
+Surface:     Deep Navy     #0D1117
+Border:      Gold alpha    rgba(201, 72, 76, 0.2)
+Danger:      Nebula Red    #FF453A
+Success:     Aurora Green  #30D158
+```
+
+### Typography (from PRD)
+```
+Headings:    Cinzel       (eternal/ancient feel — Google Fonts)
+Body:        DM Sans      (clean, modern — Google Fonts)
 ```
 
 ---
@@ -182,8 +188,10 @@ Success:     Aurora Green #30D158
 
 ```json
 {
-  "@stellar/stellar-wallets-kit": "latest",
+  "@creit-tech/stellar-wallets-kit": "latest",
   "@stellar/stellar-sdk": "^12.x",
+  "zustand": "^4.x",
+  "@tanstack/react-query": "^5.x",
   "react": "^18",
   "vite": "^5",
   "typescript": "^5",

@@ -1,0 +1,46 @@
+{
+  "name": "afterlife",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@tanstack/react-query": "^5.90.12",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0",
+    "framer-motion": "^12.23.26",
+    "gsap": "^3.14.2",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "three": "^0.182.0",
+    "viem": "^2.43.1",
+    "wagmi": "^3.1.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.3",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^20.14.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.23",
+    "chai": "^4.3.7",
+    "hardhat": "^2.22.5",
+    "hardhat-gas-reporter": "^1.0.8",
+    "mocha": "^10.2.0",
+    "postcss": "^8.5.6",
+    "solidity-coverage": "^0.8.1",
+    "tailwindcss": "^4.1.18",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "CryptoWill",
+  "description": "A temporal protocol for progressive, time-based digital inheritance. The system operates continuously, treating time as the primary actor.",
+  "requestFramePermissions": []
+}

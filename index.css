@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0c0a09;
+  --surface: #1c1917;
+  --primary: #e7e5e4;
+  --secondary: #a8a29e;
+  --accent: #d6d3d1;
+  --temporal-active: #10b981;
+  --temporal-warning: #f59e0b;
+  --temporal-executing: #6366f1;
+  --temporal-locked: #44403c;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism Classes */
+.glass {
+  background: rgba(28, 25, 23, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-emerald {
+  background: rgba(16, 185, 129, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.glass-indigo {
+  background: rgba(99, 102, 241, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* Gradients */
+.bg-gradient-vibrant {
+  background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0c0a09 100%);
+}
+
+/* Animations */
+@keyframes temporal-ripple {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+.animate-ripple {
+  animation: temporal-ripple 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
