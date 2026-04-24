@@ -161,19 +161,9 @@ export default function RoleSelectionView() {
               {r.sub}
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: '#8b8fa8', lineHeight: 1.65, marginBottom: 20 }}>
+            <p style={{ fontSize: '0.8rem', color: '#8b8fa8', lineHeight: 1.65, marginBottom: 28 }}>
               {r.desc}
             </p>
-
-            {/* Capabilities */}
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {r.actions.map((a) => (
-                <li key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#6b6f88' }}>
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
-                  {a}
-                </li>
-              ))}
-            </ul>
 
             {/* Select button */}
             <div style={{
