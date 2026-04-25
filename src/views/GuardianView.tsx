@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, AlertTriangle, CheckCircle, LogOut, RefreshCw, Eye } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Eye } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useAfterLifeContract } from '../hooks/useAfterLifeContract';
 import { useAppStore } from '../store/useAppStore';
 import { UserRole, ProtocolState, Protocol } from '../types';
 import { ledgersToTime, truncate, formatXlm } from '../services/stellarService';
 import AnimatedLogo from '../components/AnimatedLogo';
+import InactivityTimer from '../components/InactivityTimer';
 import { StateBadge } from '../components/ui/EventLog';
 import toast from 'react-hot-toast';
 
 export default function GuardianView() {
   const { publicKey, disconnect } = useWallet();
-  const { confirmInactivity, getProtocol, getBalance } = useAfterLifeContract();
+  const { confirmInactivity, getProtocol, getBalance, getCurrentLedger } = useAfterLifeContract();
   const { targetOwner, setRole, addEvent, triggerRefresh } = useAppStore();
 
   const [protocol,    setProtocol]    = useState<Protocol | null>(null);
@@ -25,9 +26,14 @@ export default function GuardianView() {
     if (!targetOwner) return;
     setIsSyncing(true);
     try {
-      const [p, bal] = await Promise.all([getProtocol(targetOwner), getBalance(targetOwner)]);
+      const [p, bal, ledger] = await Promise.all([
+        getProtocol(targetOwner),
+        getBalance(targetOwner),
+        getCurrentLedger(),
+      ]);
       setProtocol(p);
       setVaultBal(bal);
+      setCurrentLedger(ledger);
     } catch { /* ignore */ }
     finally { setIsSyncing(false); }
   }, [targetOwner]);
@@ -46,12 +52,11 @@ export default function GuardianView() {
   const inactivityPct = Math.min((ledgersSinceHeartbeat / threshold) * 100, 100);
   const canConfirm = !protocol?.isDead && ledgersSinceHeartbeat > threshold;
 
-  // Update "current ledger" locally every 5s (approximate)
+  // Tick currentLedger locally every 5s as an approximation between syncs
   useEffect(() => {
-    if (protocol) setCurrentLedger(protocol.lastHeartbeatLedger + ledgersSinceHeartbeat);
     const interval = setInterval(() => setCurrentLedger(c => c + 1), 5000);
     return () => clearInterval(interval);
-  }, [protocol]);
+  }, []);
 
   const handleConfirmInactivity = async () => {
     if (!canConfirm) return;
@@ -98,41 +103,25 @@ export default function GuardianView() {
           </p>
         </motion.div>
 
-        {/* Inactivity Meter */}
-        <motion.div className="glass" style={{ padding: '28px 28px', marginBottom: 24 }}
+        {/* Inactivity Timer */}
+        <motion.div style={{ marginBottom: 24 }}
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <div className="section-title" style={{ marginBottom: 6 }}>Inactivity Monitor</div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                Threshold: {protocol ? ledgersToTime(protocol.inactivityThresholdLedgers) : '—'}
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'Cinzel, serif', fontSize: '2rem', color: inactivityPct >= 100 ? 'var(--crimson)' : inactivityPct >= 70 ? 'var(--gold-bright)' : 'var(--teal)' }}>
-                {inactivityPct.toFixed(1)}%
-              </div>
-              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>of threshold</div>
-            </div>
-          </div>
+          <InactivityTimer
+            lastHeartbeatLedger={protocol?.lastHeartbeatLedger ?? 0}
+            thresholdLedgers={protocol?.inactivityThresholdLedgers ?? 1}
+            currentLedger={currentLedger}
+            isDead={protocol?.isDead ?? false}
+            variant="full"
+          />
 
-          <div className="progress-bar" style={{ height: 10, marginBottom: 16 }}>
-            <div className={`progress-fill ${inactivityPct >= 100 ? 'crimson' : inactivityPct >= 70 ? '' : 'teal'}`}
-              style={{ width: `${inactivityPct}%` }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-            <div className="stat-card">
-              <div className="stat-label"><Clock size={10} style={{ display: 'inline', marginRight: 4 }} />Inactive For</div>
-              <div className="stat-value" style={{ fontSize: '1.1rem' }}>{ledgersToTime(ledgersSinceHeartbeat)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Vault Balance</div>
-              <div className="stat-value" style={{ fontSize: '1.1rem' }}>{formatXlm(vaultBal)} XLM</div>
-            </div>
+          {/* Vault balance inline */}
+          <div className="stat-card" style={{ marginTop: 12 }}>
+            <div className="stat-label">Vault Balance</div>
+            <div className="stat-value">{formatXlm(vaultBal)} XLM</div>
           </div>
 
           {/* Confirm Inactivity Button */}
+          <div style={{ marginTop: 12 }}>
           {protocol?.isDead ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', background: 'var(--crimson-dim)', border: '1px solid rgba(201,72,76,0.3)', borderRadius: 12 }}>
               <CheckCircle size={16} color="var(--crimson)" />
@@ -146,7 +135,6 @@ export default function GuardianView() {
               className={`btn btn-full ${canConfirm ? 'btn-danger' : 'btn-ghost'}`}
               onClick={handleConfirmInactivity}
               disabled={!canConfirm || confirming}
-              style={{ position: 'relative' }}
             >
               {confirming ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
@@ -160,6 +148,7 @@ export default function GuardianView() {
               )}
             </button>
           )}
+          </div>
         </motion.div>
 
         {/* Owner info */}

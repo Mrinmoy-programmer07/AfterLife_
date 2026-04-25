@@ -23,10 +23,10 @@ const MAX_GUARDIANS: u32 = 10;
 const MAX_BENEFICIARIES: u32 = 20;
 /// Platform fee: 10%
 const PLATFORM_FEE_BPS: i128 = 1_000;
-/// Grace period after death declaration: ~7 days (5 s/ledger)
-const REVIVE_GRACE_LEDGERS: u32 = 120_960;
-/// Minimum inactivity threshold: ~1 day
-const MIN_THRESHOLD_LEDGERS: u32 = 17_280;
+/// Grace period after death declaration: 10 minutes for testing (120 ledgers)
+const REVIVE_GRACE_LEDGERS: u32 = 120;
+/// Minimum inactivity threshold: 2 minutes for testing (24 ledgers)
+const MIN_THRESHOLD_LEDGERS: u32 = 24;
 
 // ---------------------------------------------------------------------------
 // Contract

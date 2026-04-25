@@ -5,6 +5,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useAfterLifeContract } from '../hooks/useAfterLifeContract';
 import { useWallet } from '../contexts/WalletContext';
 import { UserRole } from '../types';
+import toast from 'react-hot-toast';
+import { minsToLedgers } from '../services/stellarService';
 
 const ROLES = [
   {
@@ -45,14 +47,35 @@ const ROLES = [
 export default function RoleSelectionView() {
   const { setRole } = useAppStore();
   const { publicKey } = useWallet();
-  const { isRegistered } = useAfterLifeContract();
+  const { isRegistered, register } = useAfterLifeContract();
   const [ownerAddress, setOwnerAddress] = useState('');
   const [hoveredRole, setHoveredRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSelect = async (role: UserRole) => {
-    if (role === UserRole.OWNER) { setRole(role); return; }
+    if (role === UserRole.OWNER) {
+      setLoading(true);
+      try {
+        if (!publicKey) {
+          setError('Connect wallet first.');
+          setLoading(false);
+          return;
+        }
+        const ok = await isRegistered(publicKey);
+        if (!ok) {
+          const tid = toast.loading('Registering as owner (default 2 min threshold)…');
+          await register(minsToLedgers(2));
+          toast.success('Protocol registered!', { id: tid });
+        }
+        setRole(role);
+      } catch (err: any) {
+        setError(err.message ?? 'Registration failed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     if (!ownerAddress || ownerAddress.length !== 56) {
       setError('Enter a valid 56-character Stellar owner address (G…)');
       return;

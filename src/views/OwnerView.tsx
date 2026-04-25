@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Plus, Trash2, Shield, Gift, Vault, LogOut, Lock, Unlock, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Heart, Plus, Trash2, Shield, Gift, Vault, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useAfterLifeContract } from '../hooks/useAfterLifeContract';
 import { useAppStore } from '../store/useAppStore';
 import { UserRole, VestingType, ProtocolState } from '../types';
-import { formatXlm, parseXlm, ledgersToTime, daysToLedgers, truncate } from '../services/stellarService';
+import { formatXlm, parseXlm, ledgersToTime, minsToLedgers, truncate } from '../services/stellarService';
 import AnimatedLogo from '../components/AnimatedLogo';
+import InactivityTimer from '../components/InactivityTimer';
 import { StateBadge } from '../components/ui/EventLog';
 import toast from 'react-hot-toast';
 
@@ -19,7 +20,7 @@ export default function OwnerView() {
   const {
     register, proveLife, addGuardian, removeGuardian, setGuardianFixed,
     addBeneficiary, removeBeneficiary, deposit, withdraw, updateThreshold,
-    getProtocol, getGuardians, getBeneficiaries, getBalance,
+    getProtocol, getGuardians, getBeneficiaries, getBalance, getCurrentLedger,
   } = useAfterLifeContract();
   const {
     setRole, protocol, setProtocol, guardians, setGuardians,
@@ -30,6 +31,7 @@ export default function OwnerView() {
   const [tab, setTab]           = useState<'vault' | 'guardians' | 'beneficiaries'>('vault');
   const [loading, setLoading]   = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [currentLedger, setCurrentLedger] = useState(0);
 
   // Modal states
   const [showDepositModal,     setShowDepositModal]     = useState(false);
@@ -47,24 +49,26 @@ export default function OwnerView() {
   const [bWallet,     setBWallet]     = useState('');
   const [bAlloc,      setBAlloc]      = useState('');
   const [bVesting,    setBVesting]    = useState(VestingType.LINEAR);
-  const [bDays,       setBDays]       = useState('30');
-  const [regDays,     setRegDays]     = useState('30');
+  const [bDays,       setBDays]       = useState('2');
+  const [regDays,     setRegDays]     = useState('2');
 
   // ---------- Sync from blockchain ----------
   const sync = useCallback(async () => {
     if (!publicKey) return;
     setIsSyncing(true);
     try {
-      const [p, g, b, bal] = await Promise.all([
+      const [p, g, b, bal, ledger] = await Promise.all([
         getProtocol(publicKey),
         getGuardians(publicKey),
         getBeneficiaries(publicKey),
         getBalance(publicKey),
+        getCurrentLedger(),
       ]);
       setProtocol(p);
       setGuardians(g);
       setBeneficiaries(b);
       setVaultBalance(bal);
+      setCurrentLedger(ledger);
 
       if (!p) {
         setProtocolState(ProtocolState.ACTIVE);
@@ -89,7 +93,7 @@ export default function OwnerView() {
   const handleRegister = async () => {
     const tid = toast.loading('Registering protocol…');
     try {
-      const ledgers = daysToLedgers(Number(regDays));
+      const ledgers = minsToLedgers(Number(regDays));
       await register(ledgers);
       toast.success('Protocol registered!', { id: tid });
       addEvent('Protocol registered on Stellar.', 'INFO');
@@ -177,10 +181,10 @@ export default function OwnerView() {
     if (allocBps <= 0 || allocBps > 10_000) return toast.error('Allocation must be 0.01%–100%.');
     const tid = toast.loading('Adding beneficiary…');
     try {
-      await addBeneficiary(bName, bWallet, allocBps, bVesting, daysToLedgers(Number(bDays)));
+      await addBeneficiary(bName, bWallet, allocBps, bVesting, minsToLedgers(Number(bDays)));
       toast.success(`Beneficiary ${bName} added.`, { id: tid });
       addEvent(`Beneficiary added: ${bName} — ${bAlloc}% allocation.`, 'INFO');
-      setShowBeneficiaryModal(false); setBName(''); setBWallet(''); setBAlloc(''); setBDays('30');
+      setShowBeneficiaryModal(false); setBName(''); setBWallet(''); setBAlloc(''); setBDays('2');
       triggerRefresh();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to add beneficiary', { id: tid });
@@ -253,33 +257,30 @@ export default function OwnerView() {
           ))}
         </div>
 
-        {/* ---- Heartbeat CTA ---- */}
+        {/* ---- Inactivity Timer + Heartbeat ---- */}
         {isRegistered && (
-          <motion.div
-            className="glass-gold"
-            style={{ padding: '20px 28px', marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
-            animate={{ boxShadow: protocolState === ProtocolState.ACTIVE
-              ? ['0 0 0px var(--gold-glow)', '0 0 20px var(--gold-glow)', '0 0 0px var(--gold-glow)']
-              : ['0 0 0px var(--crimson-glow)', '0 0 24px var(--crimson-glow)', '0 0 0px var(--crimson-glow)']
-            }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <div>
-              <p style={{ fontFamily: 'Cinzel, serif', color: 'var(--text-primary)', marginBottom: 2 }}>Heartbeat Required</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: 0 }}>
-                Last beat: ledger #{protocol?.lastHeartbeatLedger ?? '—'} &nbsp;·&nbsp; Threshold: {protocol ? ledgersToTime(protocol.inactivityThresholdLedgers) : '—'}
-              </p>
-            </div>
-            <button
-              id="prove-life-btn"
-              className="btn btn-primary"
-              onClick={handleProveLife}
-              disabled={!isRegistered}
-              style={{ gap: 8 }}
-            >
-              <Heart size={15} /> PROVE LIFE
-            </button>
-          </motion.div>
+          <div style={{ marginBottom: 28 }}>
+            <InactivityTimer
+              lastHeartbeatLedger={protocol?.lastHeartbeatLedger ?? 0}
+              thresholdLedgers={protocol?.inactivityThresholdLedgers ?? 0}
+              currentLedger={currentLedger}
+              isDead={protocol?.isDead ?? false}
+              variant="full"
+            />
+            {!protocol?.isDead && (
+              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  id="prove-life-btn"
+                  className="btn btn-primary"
+                  onClick={handleProveLife}
+                  disabled={!isRegistered}
+                  style={{ gap: 8 }}
+                >
+                  <Heart size={15} /> PROVE LIFE
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ---- Tabs ---- */}
@@ -365,9 +366,17 @@ export default function OwnerView() {
                             </button>
                           </td>
                           <td>
-                            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                            <button
+                              style={{
+                                background: 'none', border: 'none', cursor: g.isFixed ? 'not-allowed' : 'pointer',
+                                color: g.isFixed ? 'var(--text-muted)' : '#c9484c',
+                                opacity: g.isFixed ? 0.4 : 1,
+                                transition: 'color 0.2s',
+                              }}
                               disabled={g.isFixed}
-                              onClick={() => handleRemoveGuardian(g.wallet, g.name)}>
+                              onClick={() => handleRemoveGuardian(g.wallet, g.name)}
+                              title={g.isFixed ? 'Guardian is fixed — cannot remove' : 'Remove guardian'}
+                            >
                               <Trash2 size={14} />
                             </button>
                           </td>
@@ -434,9 +443,9 @@ export default function OwnerView() {
             <motion.div className="glass modal" initial={{ scale: 0.92 }} animate={{ scale: 1 }}>
               <h3 className="modal-title">Register Protocol</h3>
               <div className="form-group" style={{ marginBottom: 20 }}>
-                <label className="input-label">Inactivity Threshold (days)</label>
+                <label className="input-label">Inactivity Threshold (mins)</label>
                 <input className="input" type="number" min={1} value={regDays} onChange={e => setRegDays(e.target.value)} />
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>≈ {daysToLedgers(Number(regDays)).toLocaleString()} ledgers. Guardians can declare inactivity after this period.</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>≈ {minsToLedgers(Number(regDays)).toLocaleString()} ledgers. Guardians can declare inactivity after this period.</p>
               </div>
               <div className="modal-footer">
                 <button className="btn btn-ghost btn-full" onClick={() => setShowRegisterModal(false)}>Cancel</button>
@@ -533,7 +542,7 @@ export default function OwnerView() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="input-label">Vesting Duration (days)</label>
+                  <label className="input-label">Vesting Duration (mins)</label>
                   <input className="input" type="number" min="1" value={bDays} onChange={e => setBDays(e.target.value)} />
                   <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{bVesting === VestingType.LINEAR ? 'Funds unlock proportionally each day.' : 'All funds unlock at once after this period.'}</p>
                 </div>

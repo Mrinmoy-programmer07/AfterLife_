@@ -89,9 +89,9 @@ export function ledgersToTime(ledgers: number): string {
   return `${Math.round(seconds / 604800)} week${Math.round(seconds / 604800) !== 1 ? 's' : ''}`;
 }
 
-/** Days to ledgers */
-export function daysToLedgers(days: number): number {
-  return Math.round(days * 86400 / 5);
+/** Mins to ledgers (for testing) */
+export function minsToLedgers(mins: number): number {
+  return Math.round(mins * 60 / 5);
 }
 
 /** Truncate Stellar G... address */

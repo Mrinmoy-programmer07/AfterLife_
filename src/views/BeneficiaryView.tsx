@@ -4,19 +4,22 @@ import { Gift, LogOut, RefreshCw, TrendingUp, Coins } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useAfterLifeContract } from '../hooks/useAfterLifeContract';
 import { useAppStore } from '../store/useAppStore';
-import { UserRole, Beneficiary, ClaimInfo, ProtocolState } from '../types';
+import { UserRole, Beneficiary, ClaimInfo, ProtocolState, Protocol } from '../types';
 import { formatXlm, ledgersToTime, truncate } from '../services/stellarService';
 import AnimatedLogo from '../components/AnimatedLogo';
+import InactivityTimer from '../components/InactivityTimer';
 import { StateBadge } from '../components/ui/EventLog';
 import toast from 'react-hot-toast';
 
 export default function BeneficiaryView() {
   const { publicKey, disconnect } = useWallet();
-  const { claim, getClaimable, getBeneficiaries, getProtocol, getBalance } = useAfterLifeContract();
+  const { claim, getClaimable, getBeneficiaries, getProtocol, getBalance, getCurrentLedger } = useAfterLifeContract();
   const { targetOwner, setRole, addEvent, triggerRefresh } = useAppStore();
 
   const [myBeneficiary, setMyBeneficiary] = useState<Beneficiary | null>(null);
   const [claimInfo,     setClaimInfo]     = useState<ClaimInfo | null>(null);
+  const [protocol,      setProtocol]      = useState<Protocol | null>(null);
+  const [currentLedger, setCurrentLedger] = useState(0);
   const [vaultBal,      setVaultBal]      = useState<bigint>(0n);
   const [isDead,        setIsDead]        = useState(false);
   const [claiming,      setClaiming]      = useState(false);
@@ -26,15 +29,18 @@ export default function BeneficiaryView() {
     if (!publicKey || !targetOwner) return;
     setIsSyncing(true);
     try {
-      const [protocol, benes, bal, info] = await Promise.all([
+      const [p, benes, bal, info, ledger] = await Promise.all([
         getProtocol(targetOwner),
         getBeneficiaries(targetOwner),
         getBalance(targetOwner),
         getClaimable(targetOwner, publicKey),
+        getCurrentLedger(),
       ]);
-      setIsDead(protocol?.isDead ?? false);
+      setProtocol(p);
+      setIsDead(p?.isDead ?? false);
       setVaultBal(bal);
       setClaimInfo(info);
+      setCurrentLedger(ledger);
 
       const me = (benes ?? []).find(b => b.wallet.toLowerCase() === publicKey.toLowerCase());
       setMyBeneficiary(me ?? null);
@@ -44,6 +50,12 @@ export default function BeneficiaryView() {
 
   useEffect(() => { sync(); }, []);
   useEffect(() => { const t = setInterval(sync, 15_000); return () => clearInterval(t); }, [sync]);
+
+  // Tick currentLedger locally every 5s as an approximation between syncs
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentLedger(c => c + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleClaim = async () => {
     if (!claimInfo || claimInfo.claimable <= 0n) return toast.error('Nothing to claim yet.');
@@ -189,15 +201,25 @@ export default function BeneficiaryView() {
 
         {/* Protocol not dead yet */}
         {!isDead && (
-          <motion.div className="glass" style={{ padding: 32, textAlign: 'center' }}
+          <motion.div className="glass" style={{ padding: 32, textAlign: 'center', marginBottom: 20 }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
             <h3 style={{ fontFamily: 'Cinzel, serif', color: 'var(--text-primary)', marginBottom: 8 }}>Awaiting Execution</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.7 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.7, marginBottom: 24 }}>
               The owner's protocol is still <strong style={{ color: 'var(--state-active)' }}>ACTIVE</strong>.
               Once a guardian confirms inactivity and the protocol enters <strong style={{ color: 'var(--state-executing)' }}>EXECUTING</strong> state,
               your vesting schedule will begin and you can start claiming.
             </p>
+            
+            <div style={{ textAlign: 'left' }}>
+              <InactivityTimer
+                lastHeartbeatLedger={protocol?.lastHeartbeatLedger ?? 0}
+                thresholdLedgers={protocol?.inactivityThresholdLedgers ?? 1}
+                currentLedger={currentLedger}
+                isDead={protocol?.isDead ?? false}
+                variant="full"
+              />
+            </div>
           </motion.div>
         )}
       </div>

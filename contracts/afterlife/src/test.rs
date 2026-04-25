@@ -50,7 +50,7 @@ fn test_register_success() {
     let (client, _, _) = setup(&env);
     let owner = Address::generate(&env);
 
-    client.register(&owner, &17_280); // 1 day
+    client.register(&owner, &24); // 1 day
     let p = client.get_protocol(&owner).unwrap();
     assert!(p.is_registered);
     assert!(!p.is_dead);
@@ -72,8 +72,8 @@ fn test_register_twice_fails() {
     let env = create_env();
     let (client, _, _) = setup(&env);
     let owner = Address::generate(&env);
-    client.register(&owner, &17_280);
-    client.register(&owner, &17_280); // should panic
+    client.register(&owner, &24);
+    client.register(&owner, &24); // should panic
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ fn test_add_and_remove_guardian() {
     let owner = Address::generate(&env);
     let guardian = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "Alice"), &guardian);
 
     let guardians = client.get_guardians(&owner);
@@ -109,14 +109,14 @@ fn test_add_beneficiary() {
     let owner = Address::generate(&env);
     let bene = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_beneficiary(
         &owner,
         &String::from_str(&env, "Bob"),
         &bene,
         &5_000, // 50%
         &VestingType::Linear,
-        &17_280, // 1 day vesting
+        &24, // 1 day vesting
     );
 
     let p = client.get_protocol(&owner).unwrap();
@@ -131,14 +131,14 @@ fn test_allocation_exceeds_100_percent() {
     let (client, _, _) = setup(&env);
     let owner = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_beneficiary(
         &owner,
         &String::from_str(&env, "Bob"),
         &Address::generate(&env),
         &6_000,
         &VestingType::Linear,
-        &17_280,
+        &24,
     );
     client.add_beneficiary(
         &owner,
@@ -146,7 +146,7 @@ fn test_allocation_exceeds_100_percent() {
         &Address::generate(&env),
         &5_000, // 6000 + 5000 = 11000 > 10000
         &VestingType::Linear,
-        &17_280,
+        &24,
     );
 }
 
@@ -160,7 +160,7 @@ fn test_prove_life_resets_heartbeat() {
     let (client, _, _) = setup(&env);
     let owner = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
 
     advance_ledger(&env, 1000);
     client.prove_life(&owner);
@@ -181,7 +181,7 @@ fn test_confirm_inactivity_too_early() {
     let owner = Address::generate(&env);
     let guardian = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "G"), &guardian);
 
     // Only 1000 ledgers passed, threshold is 17280
@@ -196,11 +196,11 @@ fn test_confirm_inactivity_success() {
     let owner = Address::generate(&env);
     let guardian = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "G"), &guardian);
 
     // Advance past threshold
-    advance_ledger(&env, 17_281);
+    advance_ledger(&env, 25);
     client.confirm_inactivity(&guardian, &owner);
 
     let p = client.get_protocol(&owner).unwrap();
@@ -225,7 +225,7 @@ fn test_claim_linear_vesting() {
     let token_admin = token::StellarAssetClient::new(&env, &native_token_id);
     token_admin.mint(&owner, &deposit_amount);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "G"), &guardian);
     client.add_beneficiary(
         &owner,
@@ -233,16 +233,16 @@ fn test_claim_linear_vesting() {
         &bene,
         &10_000, // 100%
         &VestingType::Linear,
-        &17_280, // 1 day linear
+        &24, // 1 day linear
     );
     client.deposit(&owner, &deposit_amount);
 
     // Trigger death
-    advance_ledger(&env, 17_281);
+    advance_ledger(&env, 25);
     client.confirm_inactivity(&guardian, &owner);
 
     // Advance to 50% of vesting period
-    advance_ledger(&env, 8_640);
+    advance_ledger(&env, 12);
 
     let info = client.get_claimable(&owner, &bene);
     // 50% of 1000 XLM minus 10% fee = ~450 XLM claimable (vested_amount * 0.9)
@@ -262,10 +262,10 @@ fn test_revive_within_grace_period() {
     let owner = Address::generate(&env);
     let guardian = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "G"), &guardian);
 
-    advance_ledger(&env, 17_281);
+    advance_ledger(&env, 25);
     client.confirm_inactivity(&guardian, &owner);
 
     let p = client.get_protocol(&owner).unwrap();
@@ -288,13 +288,13 @@ fn test_revive_after_grace_period_fails() {
     let owner = Address::generate(&env);
     let guardian = Address::generate(&env);
 
-    client.register(&owner, &17_280);
+    client.register(&owner, &24);
     client.add_guardian(&owner, &String::from_str(&env, "G"), &guardian);
 
-    advance_ledger(&env, 17_281);
+    advance_ledger(&env, 25);
     client.confirm_inactivity(&guardian, &owner);
 
     // Advance past grace period (120,960 ledgers)
-    advance_ledger(&env, 120_961);
+    advance_ledger(&env, 121);
     client.prove_life(&owner); // should panic GracePeriodExpired
 }

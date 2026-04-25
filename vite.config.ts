@@ -19,6 +19,11 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    // Force a single instance of stellar-base to prevent dual-package instanceof bugs
+    dedupe: [
+      '@stellar/stellar-base',
+      '@stellar/stellar-sdk',
+    ],
   },
   define: {
     'process.env': {},

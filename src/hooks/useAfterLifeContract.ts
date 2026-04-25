@@ -1,5 +1,7 @@
 import {
+  Account,
   Contract,
+  Operation,
   TransactionBuilder,
   Networks,
   BASE_FEE,
@@ -9,12 +11,8 @@ import {
   scValToNative,
 } from '@stellar/stellar-sdk';
 import {
-  Server,
-  Api,
-  assembleTransaction,
-} from '@stellar/stellar-sdk/rpc';
-import {
   SOROBAN_RPC_URL,
+  HORIZON_URL,
   CONTRACT_ID,
   STELLAR_NETWORK_PASSPHRASE,
 } from '../services/stellarService';
@@ -29,68 +27,167 @@ import { useWallet } from '../contexts/WalletContext';
 import { useCallback } from 'react';
 
 // --------------------------------------------------------------------------
-// Soroban RPC Server
+// Contract instance (not network-bound — just encodes operations)
 // --------------------------------------------------------------------------
 
-const server = new Server(SOROBAN_RPC_URL, { allowHttp: false });
 const contract = new Contract(CONTRACT_ID);
 
 // --------------------------------------------------------------------------
-// Low-level helpers
+// Raw JSON-RPC helpers — completely bypass the stellar-sdk dual-package bug
+// --------------------------------------------------------------------------
+
+async function rpc<T = any>(method: string, params: object): Promise<T> {
+  const res = await fetch(SOROBAN_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(`RPC ${method} error: ${JSON.stringify(json.error)}`);
+  return json.result as T;
+}
+
+// --------------------------------------------------------------------------
+// Core transaction pipeline
 // --------------------------------------------------------------------------
 
 async function simulateAndAssemble(
   publicKey: string,
   operations: xdr.Operation[],
   signTransaction: (xdr: string) => Promise<string>
-): Promise<Api.SendTransactionResponse> {
-  const account = await server.getAccount(publicKey);
+): Promise<string> {
+  // 1. Fetch real account from Horizon for accurate sequence number
+  const horizonRes = await fetch(`${HORIZON_URL}/accounts/${publicKey}`);
+  if (!horizonRes.ok) throw new Error(`Failed to fetch account: ${horizonRes.status} — is your wallet funded?`);
+  const acctRaw = await horizonRes.json();
+  if (acctRaw.status === 404) throw new Error('Account not found on testnet — fund it with Friendbot first');
+  const account = new Account(publicKey, acctRaw.sequence);
 
-  let builder = new TransactionBuilder(account, {
+  // 2. Build initial simulation tx
+  const builder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
   });
   operations.forEach((op) => builder.addOperation(op));
   const tx = builder.setTimeout(60).build();
 
-  // Simulate
-  const simResult = await server.simulateTransaction(tx);
-  if (Api.isSimulationError(simResult)) {
-    throw new Error(`Simulation failed: ${(simResult as any).error}`);
+  // 3. Simulate via raw fetch (avoids Server instanceof bug)
+  const simResult = await rpc<any>('simulateTransaction', { transaction: tx.toXDR() });
+
+  if (simResult.error) {
+    throw new Error(`Simulation failed: ${simResult.error}`);
+  }
+  if (!simResult.transactionData) {
+    throw new Error('Simulation failed: missing transactionData in response');
   }
 
-  // Assemble & sign
-  const prepared = assembleTransaction(tx, simResult).build();
-  const signedXdr = await signTransaction(prepared.toXDR());
-  const signedTx = TransactionBuilder.fromXDR(signedXdr, STELLAR_NETWORK_PASSPHRASE);
+  // 4. Parse sim outputs manually from base64
+  const rawAuths: string[] = simResult.results?.[0]?.auth ?? [];
+  const parsedAuths = rawAuths.map((a: string) =>
+    xdr.SorobanAuthorizationEntry.fromXDR(a, 'base64')
+  );
+  const sorobanData = xdr.SorobanTransactionData.fromXDR(simResult.transactionData, 'base64');
+  const minResourceFee = parseInt(simResult.minResourceFee || '0');
 
-  // Submit
-  return server.sendTransaction(signedTx);
+  // 5. Assemble: rebuild tx with auth + soroban data + updated fee
+  //    Use a fresh account with same sequence so builder increments to the correct value
+  const freshAccount = new Account(publicKey, acctRaw.sequence);
+  const assembledBuilder = new TransactionBuilder(freshAccount, {
+    fee: (parseInt(BASE_FEE) + minResourceFee).toString(),
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  });
+
+  for (const op of operations) {
+    if (op.body().switch().value === xdr.OperationType.invokeHostFunction().value) {
+      // Re-encode the operation with the auth entries from simulation
+      const invokeOp = op.body().invokeHostFunctionOp();
+      const authToUse = parsedAuths.length > 0 ? parsedAuths : invokeOp.auth();
+      assembledBuilder.addOperation(
+        Operation.invokeHostFunction({
+          func: invokeOp.hostFunction(),
+          auth: authToUse,
+        })
+      );
+    } else {
+      assembledBuilder.addOperation(op);
+    }
+  }
+
+  assembledBuilder.setTimeout(60);
+  assembledBuilder.setSorobanData(sorobanData);
+
+  const prepared = assembledBuilder.build();
+
+  // 6. Sign via wallet
+  const signedXdr = await signTransaction(prepared.toXDR());
+  return signedXdr;
 }
 
-async function waitForResult(
-  response: Api.SendTransactionResponse
-): Promise<xdr.ScVal | null> {
-  if ((response as any).status === 'ERROR') {
-    throw new Error(`Submit failed: ${JSON.stringify(response)}`);
+async function submitAndWait(signedXdr: string): Promise<xdr.ScVal | null> {
+  // Send
+  const sendResult = await rpc<any>('sendTransaction', { transaction: signedXdr });
+
+  if (sendResult.status === 'ERROR') {
+    throw new Error(`Submit failed: ${JSON.stringify(sendResult)}`);
   }
 
-  const hash = (response as any).hash;
-  let getResp: any = null;
-  for (let i = 0; i < 30; i++) {
+  const hash: string = sendResult.hash;
+  if (!hash) throw new Error('No tx hash returned from sendTransaction');
+
+  // Poll for confirmation
+  for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 2000));
-    getResp = await server.getTransaction(hash);
-    const st = getResp?.status ?? '';
-    if (st !== 'NOT_FOUND' && st !== 'PENDING') break;
-  }
+    const getResult = await rpc<any>('getTransaction', { hash });
+    const status: string = getResult?.status ?? '';
 
-  if (getResp?.status === 'SUCCESS') {
-    return getResp.returnValue ?? null;
+    if (status === 'SUCCESS') {
+      if (getResult.resultMetaXdr) {
+        try {
+          const meta = xdr.TransactionMeta.fromXDR(getResult.resultMetaXdr, 'base64');
+          const sorobanMeta = meta.v3()?.sorobanMeta();
+          return sorobanMeta?.returnValue() ?? null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+    if (status === 'FAILED') {
+      throw new Error(`Transaction failed: ${JSON.stringify(getResult)}`);
+    }
+    // NOT_FOUND or still processing — keep polling
   }
-  if (getResp?.status === 'FAILED') {
-    throw new Error(`Transaction failed: ${JSON.stringify(getResp)}`);
+  throw new Error('Transaction confirmation timed out');
+}
+
+// --------------------------------------------------------------------------
+// Read-only queries — use a zero-sequence offline account for simulation
+// (no real account lookup needed — node ignores source for simulate)
+// --------------------------------------------------------------------------
+
+async function queryContract(method: string, args: xdr.ScVal[]): Promise<xdr.ScVal | null> {
+  try {
+    const op = contract.call(method, ...args);
+    // Use a well-known valid throwaway public key for simulation
+    const account = new Account('GDHQ64IEY54IROCR5PVATOWVOMRJJ4XU33EXLDFPE3KPDXLDIUFLVSGH', '0');
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+    })
+      .addOperation(op)
+      .setTimeout(10)
+      .build();
+
+    const simResult = await rpc<any>('simulateTransaction', { transaction: tx.toXDR() });
+
+    if (simResult.error || !simResult.results || !simResult.results[0]?.xdr) {
+      return null;
+    }
+
+    return xdr.ScVal.fromXDR(simResult.results[0].xdr, 'base64');
+  } catch {
+    return null;
   }
-  return null;
 }
 
 // --------------------------------------------------------------------------
@@ -101,10 +198,10 @@ function scValToProtocol(val: xdr.ScVal): Protocol | null {
   try {
     const map = scValToNative(val) as Record<string, any>;
     return {
-      isRegistered:               map['is_registered'],
+      isRegistered:               Boolean(map['is_registered']),
       lastHeartbeatLedger:        Number(map['last_heartbeat_ledger']),
       inactivityThresholdLedgers: Number(map['inactivity_threshold_ledgers']),
-      isDead:                     map['is_dead'],
+      isDead:                     Boolean(map['is_dead']),
       initialVaultBalance:        BigInt(map['initial_vault_balance'] ?? 0),
       vestingStartLedger:         Number(map['vesting_start_ledger']),
       totalAllocationBps:         Number(map['total_allocation_bps']),
@@ -119,7 +216,7 @@ function scValToGuardian(val: any): Guardian {
   return {
     name:    val['name'],
     wallet:  val['wallet'],
-    isFixed: val['is_fixed'],
+    isFixed: Boolean(val['is_fixed']),
   };
 }
 
@@ -136,37 +233,23 @@ function scValToBeneficiary(val: any): Beneficiary {
 }
 
 // --------------------------------------------------------------------------
-// Read-only queries (no signature needed)
-// --------------------------------------------------------------------------
-
-async function queryContract(method: string, args: xdr.ScVal[]): Promise<xdr.ScVal | null> {
-  try {
-    const op = contract.call(method, ...args);
-    const account = await server.getAccount(
-      'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' // throwaway for simulation
-    );
-    const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE,
-      networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-    })
-      .addOperation(op)
-      .setTimeout(10)
-      .build();
-
-    const sim = await server.simulateTransaction(tx);
-    if (Api.isSimulationError(sim)) return null;
-    return (sim as any).result?.retval ?? null;
-  } catch {
-    return null;
-  }
-}
-
-// --------------------------------------------------------------------------
 // Hook
 // --------------------------------------------------------------------------
 
 export function useAfterLifeContract() {
   const { publicKey, signTransaction } = useWallet();
+
+  // ---- Core executor ----
+
+  const execTx = useCallback(
+    async (method: string, args: xdr.ScVal[]) => {
+      if (!publicKey) throw new Error('Wallet not connected');
+      const op = contract.call(method, ...args);
+      const signedXdr = await simulateAndAssemble(publicKey, [op], signTransaction);
+      return submitAndWait(signedXdr);
+    },
+    [publicKey, signTransaction]
+  );
 
   // ---- View functions ----
 
@@ -175,7 +258,6 @@ export function useAfterLifeContract() {
       nativeToScVal(Address.fromString(owner), { type: 'address' }),
     ]);
     if (!val) return null;
-    // Option<Protocol>: if Some, unwrap
     try {
       const native = scValToNative(val);
       if (!native) return null;
@@ -255,17 +337,15 @@ export function useAfterLifeContract() {
     } catch { return { canRevive: false, ledgersRemaining: 0 }; }
   }, []);
 
-  // ---- Mutating functions ----
+  // Get current ledger number
+  const getCurrentLedger = useCallback(async (): Promise<number> => {
+    try {
+      const result = await rpc<any>('getLatestLedger', {});
+      return result.sequence ?? 0;
+    } catch { return 0; }
+  }, []);
 
-  const execTx = useCallback(
-    async (method: string, args: xdr.ScVal[]) => {
-      if (!publicKey) throw new Error('Wallet not connected');
-      const op = contract.call(method, ...args);
-      const resp = await simulateAndAssemble(publicKey, [op], signTransaction);
-      return waitForResult(resp);
-    },
-    [publicKey, signTransaction]
-  );
+  // ---- Mutating functions ----
 
   const register = useCallback(async (thresholdLedgers: number) => {
     if (!publicKey) throw new Error('Wallet not connected');
@@ -350,6 +430,14 @@ export function useAfterLifeContract() {
     ]);
   }, [publicKey, execTx]);
 
+  const updateThreshold = useCallback(async (thresholdLedgers: number) => {
+    if (!publicKey) throw new Error('Wallet not connected');
+    return execTx('update_threshold', [
+      nativeToScVal(Address.fromString(publicKey), { type: 'address' }),
+      nativeToScVal(thresholdLedgers, { type: 'u32' }),
+    ]);
+  }, [publicKey, execTx]);
+
   const confirmInactivity = useCallback(async (ownerAddress: string) => {
     if (!publicKey) throw new Error('Wallet not connected');
     return execTx('confirm_inactivity', [
@@ -366,18 +454,11 @@ export function useAfterLifeContract() {
     ]);
   }, [publicKey, execTx]);
 
-  const updateThreshold = useCallback(async (thresholdLedgers: number) => {
-    if (!publicKey) throw new Error('Wallet not connected');
-    return execTx('update_threshold', [
-      nativeToScVal(Address.fromString(publicKey), { type: 'address' }),
-      nativeToScVal(thresholdLedgers, { type: 'u32' }),
-    ]);
-  }, [publicKey, execTx]);
-
   return {
     // Views
     getProtocol, getGuardians, getBeneficiaries,
     getBalance, isRegistered, getClaimable, getReviveStatus,
+    getCurrentLedger,
     // Mutations
     register, proveLife,
     addGuardian, removeGuardian, setGuardianFixed,
@@ -386,4 +467,3 @@ export function useAfterLifeContract() {
     confirmInactivity, claim,
   };
 }
-
